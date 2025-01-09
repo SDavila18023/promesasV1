@@ -91,7 +91,8 @@ export const deleteUser = async (req, res) => {
  */
 export const signUp = async (req, res) => {
   try {
-    const { name, email, password, role, typeid, identification, domain } = req.body;
+    const { name, email, password, role, typeid, identification, domain } =
+      req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -138,7 +139,6 @@ export const signUp = async (req, res) => {
   }
 };
 
-
 /**
  * Verifica el correo electrónico de un usuario mediante un token.
  * @param {Object} req - Objeto de solicitud de Express.
@@ -146,8 +146,15 @@ export const signUp = async (req, res) => {
  */
 export const verifyEmail = async (req, res) => {
   try {
+    console.log("Token recibido:", req.query.token);
     const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).send({ message: "Token no proporcionado." });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("Decoded token:", decoded);
 
     const user = await User.findById(decoded.userId);
     if (!user) {
@@ -161,6 +168,7 @@ export const verifyEmail = async (req, res) => {
 
     res.send({ message: "Correo verificado exitosamente." });
   } catch (error) {
+    console.error("Error al verificar el correo:", error);
     res.status(500).send({ message: "Error al verificar el correo.", error });
   }
 };
@@ -236,7 +244,6 @@ export const recoverPassword = async (req, res) => {
       .send({ message: "Error al recuperar la contraseña.", error });
   }
 };
-
 
 /**
  * Restablece la contraseña de un usuario utilizando un token válido.
