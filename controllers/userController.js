@@ -146,8 +146,8 @@ export const signUp = async (req, res) => {
  */
 export const verifyEmail = async (req, res) => {
   try {
-    console.log("Token recibido:", req.query.token);
-    const { token } = req.query;
+    console.log("Cuerpo de la solicitud:", req.body);
+    const { token } = req.body;
 
     if (!token) {
       return res.status(400).send({ message: "Token no proporcionado." });
