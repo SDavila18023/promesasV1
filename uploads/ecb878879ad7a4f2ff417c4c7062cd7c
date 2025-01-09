@@ -1,0 +1,12 @@
+position,height,weight,experience,videoUploaded,ambidextrous,dominantFoot,versatility,score
+0,185,75,5,true,true,left,true,0.95
+0,172,65,3,true,false,right,false,0.85
+0,160,55,1,false,false,right,true,0.3
+1,190,80,6,true,false,right,true,0.9
+1,175,70,4,true,true,right,false,0.8
+2,165,60,1,false,false,left,false,0.4
+3,180,75,5,true,false,left,true,0.88
+4,178,68,5,true,false,right,false,0.9
+5,182,77,4,true,true,left,true,0.87
+6,175,72,3,false,false,right,true,0.86
+7,188,79,5,true,true,left,true,0.9
