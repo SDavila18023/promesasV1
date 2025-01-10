@@ -91,16 +91,13 @@ export const deleteUser = async (req, res) => {
  */
 export const signUp = async (req, res) => {
   try {
-    const { name, email, password, role, typeid, identification, domain } =
-      req.body;
+    const { name, email, password, role, typeid, identification, domain } = req.body;
 
-    // Verificar si el correo ya está registrado
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).send({ message: "El correo ya está registrado." });
     }
 
-    // Crear nuevo usuario
     const newUser = new User({
       name,
       email,
@@ -113,23 +110,22 @@ export const signUp = async (req, res) => {
 
     const user = await newUser.save();
 
-    // Generar token de verificación
     const verificationToken = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // Modificar el correo electrónico para que indique un POST
+    const verificationUrl = `${domain}/verify-email?token=${verificationToken}`; // Usar el dominio recibido
+
     await transporter.sendMail({
       from: process.env.EMAIL,
       to: user.email,
       subject: "Verifica tu correo electrónico",
       html: `<p>Hola ${user.name},</p>
-               <p>Por favor, verifica tu correo enviando el siguiente token a nuestra API:</p>
-               <pre>${verificationToken}</pre>
-               <p>Endpoint para verificar: <strong>${domain}/verify-email</strong></p>
-               <p>Este token expira en 1 hora.</p>`,
+               <p>Por favor, verifica tu correo electrónico haciendo clic en el siguiente enlace:</p>
+               <a href="${verificationUrl}">Verificar correo</a>
+               <p>Este enlace expira en 1 hora.</p>`,
     });
 
     res.send({
@@ -149,15 +145,8 @@ export const signUp = async (req, res) => {
  */
 export const verifyEmail = async (req, res) => {
   try {
-    console.log("Cuerpo de la solicitud:", req.body);
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).send({ message: "Token no proporcionado." });
-    }
-
+    const { token } = req.query;
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded token:", decoded);
 
     const user = await User.findById(decoded.userId);
     if (!user) {
@@ -171,11 +160,9 @@ export const verifyEmail = async (req, res) => {
 
     res.send({ message: "Correo verificado exitosamente." });
   } catch (error) {
-    console.error("Error al verificar el correo:", error);
     res.status(500).send({ message: "Error al verificar el correo.", error });
   }
 };
-
 /**
  * Inicia sesión para un usuario registrado.
  * @param {Object} req - Objeto de solicitud de Express.
@@ -232,7 +219,7 @@ export const recoverPassword = async (req, res) => {
       to: email,
       subject: "Recuperación de Contraseña",
       text: `Para recuperar tu contraseña, haz clic en el siguiente enlace: \n
-               http://${domain}/reset-password?token=${token} \n
+               ${domain}/reset-password?token=${token} \n
                Este enlace expira en 1 hora.`,
     };
 
