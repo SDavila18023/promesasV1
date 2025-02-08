@@ -2,6 +2,7 @@
 import User from "../models/user.js";
 import axios from "axios";
 
+
 /**
  * Asigna un puntaje a un usuario basándose en los datos proporcionados.
  * @param {Object} data - Datos del usuario necesarios para calcular el puntaje.
@@ -25,11 +26,15 @@ const assignRanges = async ({
   yearsexp,
   videoUploaded,
   ambidextrous,
-  foot,
+  dominantFoot,
   versatility,
+  achievements,
+  injuryHistory,
+  trainingHoursPerWeek,
 }) => {
-  console.log(email, position, height, weight, yearsexp, videoUploaded, ambidextrous, foot, versatility);
-  
+  console.log(email, position, height, weight, yearsexp, videoUploaded, ambidextrous, dominantFoot, versatility, achievements, injuryHistory, trainingHoursPerWeek);
+ 
+
 
   try {
     // 1. Validar que el usuario existe en la base de datos
@@ -37,6 +42,7 @@ const assignRanges = async ({
     if (!user) {
       throw new Error('Usuario no encontrado');
     }
+
 
     // 2. Datos que se enviarán a la API Flask
     const payload = {
@@ -46,9 +52,13 @@ const assignRanges = async ({
       experience: yearsexp,
       videoUploaded: videoUploaded ? 1 : 0,
       ambidextrous: ambidextrous ? 1 : 0,
-      dominantFoot: foot,
+      dominantFoot: dominantFoot,
       versatility,
+      achievements,
+      injuryHistory,
+      trainingHoursPerWeek,
     };
+
 
     // 3. Realizar la solicitud POST a la API Flask
     const response = await axios.post( `${process.env.RED_API}/predict `, payload);
@@ -57,6 +67,7 @@ const assignRanges = async ({
     // 4. Guardar el puntaje en el usuario
     user.score = puntaje;
     await user.save();
+
 
     return {
       success: true,
@@ -72,5 +83,6 @@ const assignRanges = async ({
     };
   }
 };
+
 
 export default { assignRanges };
