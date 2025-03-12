@@ -198,7 +198,7 @@ export const signIn = async (req, res) => {
  * @param {Object} res - Objeto de respuesta de Express.
  */
 export const recoverPassword = async (req, res) => {
-  const { email, domain } = req.body; // Obtener dominio desde req.body
+  const { email, domain } = req.body;
 
   try {
     const user = await User.findOne({ email });
@@ -212,18 +212,20 @@ export const recoverPassword = async (req, res) => {
     user.resetPasswordToken = token;
     user.resetPasswordExpires = Date.now() + 3600000;
 
-    await user.save();
-
+    // Guardar usuario y enviar correo en paralelo para mejorar el rendimiento
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
       subject: "Recuperación de Contraseña",
       text: `Para recuperar tu contraseña, haz clic en el siguiente enlace: \n
-               ${domain}/reset-password?token=${token} \n
-               Este enlace expira en 1 hora.`,
+             ${domain}/reset-password?token=${token} \n
+             Este enlace expira en 1 hora.`,
     };
 
-    await transporter.sendMail(mailOptions);
+    await Promise.all([
+      user.save(), // Guardar cambios en la base de datos
+      transporter.sendMail(mailOptions).catch(console.error), // Enviar email sin bloquear
+    ]);
 
     res.status(200).json({
       message: "Se ha enviado un correo para recuperar tu contraseña.",
