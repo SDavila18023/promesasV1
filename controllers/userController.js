@@ -1,107 +1,89 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
-import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-/**
- * Configuración del transporte de nodemailer para envío de correos.
- */
+// Configuración segura de nodemailer
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "promesasalacancha@gmail.com",
-    pass: "yhakmxzscyagziem",
+    user: process.env.EMAIL,
+    pass: process.env.EMAIL_PASSWORD,
   },
   tls: {
     rejectUnauthorized: false,
   },
 });
 
-/**
- * Obtiene todos los usuarios del sistema.
- * @param {Object} req - Objeto de solicitud de Express.
- * @param {Object} res - Objeto de respuesta de Express.
- */
+// Obtener todos los usuarios
 export const getAllUsers = async (req, res) => {
   try {
-    const data = await User.find({});
-    res.send(data);
+    const users = await User.find({});
+    res.json(users);
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener los usuarios", error });
+    res.status(500).json({ message: "Error al obtener los usuarios", error: error.message });
   }
 };
 
-/**
- * Obtiene un usuario por su ID.
- * @param {Object} req - Objeto de solicitud de Express.
- * @param {Object} res - Objeto de respuesta de Express.
- */
+// Obtener usuario por ID
 export const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     res.json(user);
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener el usuario", error });
+    res.status(500).json({ message: "Error al obtener el usuario", error: error.message });
   }
 };
 
-/**
- * Actualiza los datos de un usuario existente.
- * @param {Object} req - Objeto de solicitud de Express.
- * @param {Object} res - Objeto de respuesta de Express.
- */
+// Actualizar usuario
 export const updateUser = async (req, res) => {
   try {
-    const email = req.body.email;
-    const infoToUpdate = req.body;
-
-    const result = await User.updateOne({ email }, { $set: infoToUpdate });
-    res.send(result);
+    const { email, ...updateData } = req.body;
+    const result = await User.updateOne({ email }, { $set: updateData });
+    res.json(result);
   } catch (error) {
-    res.status(500).send({ message: "Error al actualizar el usuario.", error });
+    res.status(500).json({ message: "Error al actualizar el usuario", error: error.message });
   }
 };
 
-/**
- * Elimina un usuario del sistema.
- * @param {Object} req - Objeto de solicitud de Express.
- * @param {Object} res - Objeto de respuesta de Express.
- */
+// Eliminar usuario
 export const deleteUser = async (req, res) => {
   try {
-    const email = req.body.email;
-    const data = await User.deleteOne({ email });
-    res.send({ success: true, message: "Usuario eliminado", data });
+    const { email } = req.body;
+    const result = await User.deleteOne({ email });
+    res.json({ success: true, message: "Usuario eliminado", result });
   } catch (error) {
-    res.status(500).send({ message: "Error al eliminar el usuario.", error });
+    res.status(500).json({ message: "Error al eliminar el usuario", error: error.message });
   }
 };
 
-/**
- * Registra un nuevo usuario en el sistema.
- * @param {Object} req - Objeto de solicitud de Express.
- * @param {Object} res - Objeto de respuesta de Express.
- */
+// Registro de usuario
 export const signUp = async (req, res) => {
   try {
+    console.log("Datos recibidos:", req.body);
+    
     const { name, email, password, role, typeid, identification, domain } = req.body;
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).send({ message: "El correo ya está registrado." });
+    if (!email || !password || !name || !domain) {
+      return res.status(400).json({ message: "Faltan datos obligatorios." });
     }
 
+    const existingUser = await User.findOne({ email });
+    console.log("Usuario existente:", existingUser);
+
+    if (existingUser) {
+      return res.status(400).json({ message: "El correo ya está registrado." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({
       name,
       email,
-      password: bcrypt.hashSync(password),
+      password: hashedPassword,
       role,
       typeid,
       identification,
@@ -109,6 +91,7 @@ export const signUp = async (req, res) => {
     });
 
     const user = await newUser.save();
+    console.log("Usuario guardado:", user);
 
     const verificationToken = jwt.sign(
       { userId: user._id, email: user.email },
@@ -116,27 +99,34 @@ export const signUp = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    const verificationUrl = `${domain}/verify-email?token=${verificationToken}`; // Usar el dominio recibido
+    console.log("Token generado:", verificationToken);
 
-    await transporter.sendMail({
-      from: process.env.EMAIL,
-      to: user.email,
-      subject: "Verifica tu correo electrónico",
-      html: `<p>Hola ${user.name},</p>
-               <p>Por favor, verifica tu correo electrónico haciendo clic en el siguiente enlace:</p>
-               <a href="${verificationUrl}">Verificar correo</a>
-               <p>Este enlace expira en 1 hora.</p>`,
-    });
+    const verificationUrl = `${domain}/verify-email?token=${verificationToken}`;
 
-    res.send({
-      message:
-        "Usuario registrado exitosamente. Revisa tu correo para verificar la cuenta.",
-      userId: user._id,
+    res.json({ message: "Registro exitoso. Verifica tu correo.", userId: user._id });
+
+    setImmediate(async () => {
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: user.email,
+          subject: "Verifica tu correo electrónico",
+          html: `<p>Hola ${user.name},</p>
+                 <p>Verifica tu correo haciendo clic en el siguiente enlace:</p>
+                 <a href="${verificationUrl}">Verificar correo</a>
+                 <p>Este enlace expira en 1 hora.</p>`,
+        });
+        console.log("Correo enviado a:", user.email);
+      } catch (error) {
+        console.error("Error enviando correo:", error);
+      }
     });
   } catch (error) {
-    res.status(500).send({ message: "Error al registrar el usuario.", error });
+    console.error("Error en signUp:", error);
+    res.status(500).json({ message: "Error al registrar el usuario", error: error.message });
   }
 };
+
 
 /**
  * Verifica el correo electrónico de un usuario mediante un token.
