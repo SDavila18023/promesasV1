@@ -40,10 +40,14 @@ const assignRanges = async ({
       throw new Error('Usuario no encontrado');
     }
 
+    // Si el pie dominante es "both", aseguramos que ambidextrous sea 1 y asignamos un valor válido a dominantFoot
+    if (dominantFoot === "both") {
+      ambidextrous = 1;  // Asegurar que ambidextrous sea 1
+      dominantFoot = "right"; // Enviar un valor válido a la API
+    }
 
     const adjustedExperience = yearsexp * 0.5;
     const adjustedAchievements = achievements * 0.3;
-
 
     const payload = {
       position,
@@ -52,18 +56,21 @@ const assignRanges = async ({
       experience: adjustedExperience,
       videoUploaded: videoUploaded ? 1 : 0,
       ambidextrous: ambidextrous ? 1 : 0,
-      dominantFoot: dominantFoot,
+      dominantFoot,
       versatility,
       achievements: adjustedAchievements,
       injuryHistory,
       trainingHoursPerWeek,
     };
 
-
     const response = await axios.post(`${process.env.RED_API}/predict`, payload);
+
+    if (!response.data || typeof response.data.puntaje !== "number") {
+      throw new Error("Respuesta inválida de la API de predicción");
+    }
+
     const { puntaje } = response.data;
     console.log('Puntaje asignado:', puntaje);
-
 
     user.score = puntaje;
     await user.save();
@@ -82,6 +89,5 @@ const assignRanges = async ({
     };
   }
 };
-
 
 export default { assignRanges };
