@@ -7,27 +7,41 @@ import { Server } from "socket.io";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
-// Imports Archivos js
+// Imports Archivos JS
 import user from "./routes/user.js";
-import Message from "./models/message.js";
 import message from "./routes/message.js";
 import algorithm from "./routes/algorithm.js";
+import Message from "./models/message.js";
+import User from "./models/user.js"; // Se agregó la importación de User
 
 dotenv.config();
 
 // Init Express
 const app = express();
 const server = http.createServer(app);
+
+// Configuración de CORS
+app.use(cors({
+  origin: "https://www.promesasalacancha.pro",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Middleware para manejar preflight requests
+app.options("*", cors());
+
+// Middlewares
+app.use(express.json());
+app.use(morgan("dev"));
+
+// Configuración de WebSockets con CORS
 const io = new Server(server, {
   cors: {
-    origin: "*",
-  },
+    origin: "https://www.promesasalacancha.pro",
+    methods: ["GET", "POST"]
+  }
 });
-
-//Middlewares
-app.use(express.json());
-app.use(cors());
-app.use(morgan("dev"));
 
 /**
  * @function initializeSocket
@@ -35,16 +49,20 @@ app.use(morgan("dev"));
  */
 const initializeSocket = () => {
   io.on("connection", (socket) => {
-    console.log("a user connected", socket.id);
+    console.log("User connected:", socket.id);
 
     socket.on("sendMessage", async (message) => {
-      const newMessage = new Message(message);
-      await newMessage.save();
-      io.emit("receiveMessage", message);
+      try {
+        const newMessage = new Message(message);
+        await newMessage.save();
+        io.emit("receiveMessage", message);
+      } catch (error) {
+        console.error("Error saving message:", error.message);
+      }
     });
 
     socket.on("disconnect", () => {
-      console.log("user disconnected");
+      console.log("User disconnected:", socket.id);
     });
   });
 };
@@ -55,12 +73,13 @@ const initializeSocket = () => {
  */
 const connectToDatabase = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("Base de datos conectada");
+    await mongoose.connect(process.env.MONGODB_URI); // Se eliminaron opciones innecesarias
+    console.log("✅ Base de datos conectada");
   } catch (err) {
-    console.log(err.message);
+    console.error("❌ Error conectando a la base de datos:", err.message);
   }
 };
+
 
 /**
  * @function getContacts
@@ -69,18 +88,22 @@ const connectToDatabase = async () => {
  * @returns {Promise<void>}
  */
 const getContacts = async (username) => {
-  const sentMessages = await Message.find({ to: username }).distinct("from");
-  const receivedMessages = await Message.find({ from: username }).distinct(
-    "to"
-  );
-  const contactUsernames = [...new Set([...sentMessages, ...receivedMessages])];
-  const contacts = await User.find({ username: { $in: contactUsernames } });
+  try {
+    const sentMessages = await Message.find({ to: username }).distinct("from");
+    const receivedMessages = await Message.find({ from: username }).distinct("to");
+    const contactUsernames = [...new Set([...sentMessages, ...receivedMessages])];
 
-  console.log("Sent Messages:", sentMessages); // Añadir logs para depuración
-  console.log("Received Messages:", receivedMessages); // Añadir logs para depuración
-  console.log("Contacts:", contacts); // Añadir logs para depuración
+    const contacts = await User.find({ username: { $in: contactUsernames } });
 
-  return contacts;
+    console.log("📩 Sent Messages:", sentMessages);
+    console.log("📨 Received Messages:", receivedMessages);
+    console.log("👥 Contacts:", contacts);
+
+    return contacts;
+  } catch (error) {
+    console.error("❌ Error obteniendo contactos:", error.message);
+    throw error;
+  }
 };
 
 // Rutas
@@ -90,8 +113,7 @@ app.use("/api/algorithm", algorithm);
 
 /**
  * @route GET /contacts/:username
- * @param {string} username - Nombre de usuario
- * @returns {Object[]} Lista de contactos
+ * @description Obtiene la lista de contactos de un usuario.
  */
 app.get("/contacts/:username", async (req, res) => {
   const { username } = req.params;
@@ -99,33 +121,40 @@ app.get("/contacts/:username", async (req, res) => {
     const contacts = await getContacts(username);
     res.json(contacts);
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
 /**
  * @route GET /messages/:from/:to
- * @param {string} from - Usuario que envía el mensaje
- * @param {string} to - Usuario que recibe el mensaje
- * @returns {Object[]} Lista de mensajes entre dos usuarios
+ * @description Obtiene los mensajes entre dos usuarios.
  */
 app.get("/messages/:from/:to", async (req, res) => {
   const { from, to } = req.params;
-  const messages = await Message.find({
-    $or: [
-      { from, to },
-      { from: to, to: from },
-    ],
-  }).sort("timestamp");
-  res.json(messages);
+  try {
+    const messages = await Message.find({
+      $or: [
+        { from, to },
+        { from: to, to: from }
+      ]
+    }).sort("timestamp");
+
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Servidor
 const port = process.env.PORT || 5000;
 
+/**
+ * @function startServer
+ * @description Inicia el servidor Express.
+ */
 const startServer = () => {
   server.listen(port, () => {
-    console.log(`Servidor en el puerto ${port}`);
+    console.log(`🚀 Servidor corriendo en el puerto ${port}`);
   });
 };
 
