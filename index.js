@@ -21,15 +21,27 @@ const app = express();
 const server = http.createServer(app);
 
 // Configuración de CORS
-app.use(cors({
-  origin: "https://www.promesasalacancha.pro",
+const corsOptions = {
+  origin: "https://www.promesasalacancha.pro", // Asegura que solo tu frontend pueda hacer peticiones
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-}));
+};
+app.use(cors(corsOptions));
+
+// Middleware para configurar manualmente los encabezados CORS
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://www.promesasalacancha.pro");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 
 // Middleware para manejar preflight requests
-app.options("*", cors());
+app.options("*", (req, res) => {
+  res.sendStatus(200);
+});
 
 // Middlewares
 app.use(express.json());
@@ -39,7 +51,8 @@ app.use(morgan("dev"));
 const io = new Server(server, {
   cors: {
     origin: "https://www.promesasalacancha.pro",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -79,7 +92,6 @@ const connectToDatabase = async () => {
     console.error("❌ Error conectando a la base de datos:", err.message);
   }
 };
-
 
 /**
  * @function getContacts
