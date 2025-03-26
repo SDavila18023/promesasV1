@@ -12,7 +12,7 @@ import user from "./routes/user.js";
 import message from "./routes/message.js";
 import algorithm from "./routes/algorithm.js";
 import Message from "./models/message.js";
-import User from "./models/user.js"; // Se agregó la importación de User
+import User from "./models/user.js"; 
 
 dotenv.config();
 
@@ -20,27 +20,23 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Configuración de CORS
+// Configuración de CORS para permitir cualquier origen
 const corsOptions = {
-  origin: "https://www.promesasalacancha.pro", // Asegura que solo tu frontend pueda hacer peticiones
+  origin: "*", // Permitir cualquier frontend
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 };
 app.use(cors(corsOptions));
 
-// Middleware para configurar manualmente los encabezados CORS
+// Middleware para manejar CORS manualmente
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://www.promesasalacancha.pro");
+  res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
-});
-
-// Middleware para manejar preflight requests
-app.options("*", (req, res) => {
-  res.sendStatus(200);
 });
 
 // Middlewares
@@ -50,7 +46,7 @@ app.use(morgan("dev"));
 // Configuración de WebSockets con CORS
 const io = new Server(server, {
   cors: {
-    origin: "https://www.promesasalacancha.pro",
+    origin: "*",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -86,7 +82,7 @@ const initializeSocket = () => {
  */
 const connectToDatabase = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI); // Se eliminaron opciones innecesarias
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log("✅ Base de datos conectada");
   } catch (err) {
     console.error("❌ Error conectando a la base de datos:", err.message);
